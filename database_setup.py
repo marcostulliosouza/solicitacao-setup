@@ -316,4 +316,3 @@ def ler_config():
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
     return config['PATH']['sql_dir']
-

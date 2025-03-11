@@ -120,7 +120,6 @@ class EnvioApp:
         else:
             messagebox.showwarning("Campos Vazios", "Por favor, preencha todos os campos.")
 
-
     def criar_tela_solicitacao(self):
         """Cria a tela de solicitação."""
         for widget in self.root.winfo_children():
@@ -416,7 +415,7 @@ class EnvioApp:
             self.lista_insumos_adicionados.delete(0, tk.END)
             self.criar_tela_solicitacao()
         except sqlite3.Error as e:
-            messagebox.showerror("Erro de Banco de Dados", f"Erro ao acessar o banco de dados: {str(e)}")
+            messagebox.showerror("Erro de Banco de Dados", f"Erro ao acessar ao banco de dados: {str(e)}")
         except Exception as e:
             messagebox.showerror("Erro", f"Ocorreu um erro inesperado: {str(e)}")
 
