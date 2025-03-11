@@ -2,6 +2,7 @@ import sqlite3
 import os
 import configparser
 import bcrypt
+from datetime import datetime
 
 # Constantes
 CONFIG_FILE = 'config.ini'
@@ -15,9 +16,73 @@ EXAMPLE_REQUESTS = [
     ('João Silva', '1234', 'Solicitação de reembolso de viagem', 'pendente')
 ]
 
+# Dados dos insumos
+INSUMOS = [
+    ("1403468", "AGULHA PLASTICA PINK #20"),
+    ("1403799", "ALICATE DE BICO 05POL PNE01NB"),
+    ("1404992", "BICO PLASTICO OLIVA 14GA"),
+    ("1400011", "CAMISINHA P/ SUGADOR DE SOLDA"),
+    ("1401300", "CANETA ESFER AZL"),
+    ("1401298", "CANETA MARC TX VRD"),
+    ("1401291", "CANETA RETROP AZL"),
+    ("1401290", "CANETA RETROP PRT"),
+    ("1401293", "CANETA RETROP VRM"),
+    ("1403304", "EMBOLO 30/50CC P/ SERINGA DE FLUID"),
+    ("1400019", "ESCOVA DURA 3X7 P/ LIMP DE PLACAS"),
+    ("1401264", "ETQ COUCHE VRD LIMA 85X40MM"),
+    ("1405153", "FIO DE SOLDA LEAD FREE 0.8MM"),
+    ("1404580", "FIO DE SOLDA TIN LEAD 0.55MM"),
+    ("1404579", "FIO DE SOLDA TIN LEAD 0.75MM"),
+    ("1404092", "FITA ADES PLAST SIMBOLO ESD 3/4 50M"),
+    ("1404732", "FITA CREPE PAPEL AUTOMOTIVA 18MMX40M"),
+    ("1401288", "FITA DE KAPTON ESD 13X33M"),
+    ("1403473", "FRASCO ALMOTOLIA PLASTICO"),
+    ("1404764", "LUVA NYLON ESD REVEST C/PU M"),
+    ("1401167", "MALHA DESOLDADORA 2MMX1.5M"),
+    ("1401169", "MARC INDUSTRIAL VRD"),
+    ("1401168", "MARCADOR INDUSTRIAL AMARELO"),
+    ("1400455", "PINCA ADS SERRIL 120MM"),
+    ("1400047", "PINCA TS10 GOOT PONTI 120MM"),
+    ("1400048", "PINCA TS11 GOOT PONTI 140MM"),
+    ("1400050", "PINCEL TIGRE 1/2POL REF 815 -CERDA 0.5"),
+    ("1404385", "PONTA FER SOLDA FACA T18-K"),
+    ("1400055", "PONTE FER SOLDA CONIC RX-80HRT-LB GOOT"),
+    ("1401190", "PULSEIRA 80V ANTI-ESTATICA"),
+    ("1401669", "Ribbon cera"),
+    ("1405628", "RIBBON RESINA PRT 110MMX74M R1880 ATRITO"),
+    ("1403303", "SERINGA 50 CC P/ FLUID DISPENSER"),
+    ("1401638", "SPUDGER (ESPATULA DE FD)155MM"),
+    ("1400067", "ALICATE DE CORTE 05POL TER-03-NB"),
+    ("1401119", "BATERIA 9V"),
+    ("1405260", "CANETA DE FLUXO ALPHA EF-6100R (10G)"),
+    ("1403285", "CANETA ESF BIC CRISTAL PRETA"),
+    ("1401299", "CANETA MARC TX AMR"),
+    ("1401292", "CANETA RETROP VRD"),
+    ("1401304", "CLIPS 3/0"),
+    ("1405321", "COLA P/FIXA 75396 - COLA QUENTE"),
+    ("1400017", "COLA SUPER BONDER 416 100ML QUIMICO"),
+    ("1404621", "ESPONJA REFIL P/LIMPEZA FERRO DE SOLDA"),
+    ("1405261", "ESTANHO CHUMBO Sn63/Pb37 P1 1.00MM"),
+    ("1405492", "ETQ COUCHE 85X40MM GELO COLINA"),
+    ("1402942", "FIO DE SOLDA LEAD FREE 0.5MM"),
+    ("1400156", "FITA ADES PLAST TRANSP 48MMX50M"),
+    ("1405235", "FITA GOMADA 60MM/PAPEL KRAFT"),
+    ("1403521", "FITA PET VRD DE ARQUEAR 16X0.8MM"),
+    ("1402925", "FLUXO EM CANETA RMA-0801 QUIMICO"),
+    ("1404765", "LUVA NYLON ESD REVEST C/PU G"),
+    ("1404766", "LUVA NYLON ESD REVEST C/PU P"),
+    ("1401492", "MARC QUADRO BCO VRD"),
+    ("1404762", "PANO DE LIMPEZA ESD SGS"),
+    ("1404113", "PINCEL CERDA 13MM REF 300X1/2"),
+    ("1405089", "PONTA P/ESTACAO RX-80-HRT-55K"),
+    ("1401485", "PONTE FER SOLDA FACA RX-80HRT-4.5K GOOT"),
+    ("1401195", "SERINGAS DESCARTAVEIS 10ML"),
+    ("1400140", "SUGADOR DE SOLDA AFR201"),
+]
+
 
 class DatabaseManager:
-    """ Classe para gerenciar o banco"""
+    """ Classe para gerenciar o banco de dados """
 
     def __init__(self):
         self.connection = None
@@ -32,13 +97,13 @@ class DatabaseManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """ Fecha a conexão com o banco de dados"""
+        """ Fecha a conexão com o banco de dados """
         if self.connection:
             self.connection.commit()
             self.connection.close()
 
     def criar_tabelas(self):
-        """ Cria as tabelas no banco"""
+        """ Cria as tabelas no banco de dados """
         self.cursor.execute(
             '''
             CREATE TABLE IF NOT EXISTS usuarios (
@@ -46,7 +111,8 @@ class DatabaseManager:
                 nome TEXT NOT NULL,
                 cracha TEXT NOT NULL UNIQUE,
                 senha TEXT NOT NULL,
-                tipo TEXT NOT NULL
+                tipo TEXT NOT NULL,
+                limite_solicitacao INTEGER DEFAULT 0
             )
             '''
         )
@@ -62,14 +128,15 @@ class DatabaseManager:
                 status TEXT NOT NULL,
                 observacoes_recebimento TEXT,
                 data_alteracao TEXT,
-                usuario_alteracao TEXT
+                usuario_alteracao TEXT,
+                status_pagamento TEXT DEFAULT 'pendente'
             )
             '''
         )
 
         self.cursor.execute(
             '''
-            CREATE TABLE IF NOT EXISTS insumos  (
+            CREATE TABLE IF NOT EXISTS insumos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cod_sap TEXT NOT NULL UNIQUE,
                 nome TEXT NOT NULL,
@@ -86,70 +153,109 @@ class DatabaseManager:
                 solicitacao_id INTEGER NOT NULL,
                 insumo_id INTEGER NOT NULL,
                 quantidade INTEGER NOT NULL,
+                usuario_id INTEGER,
                 FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes(id),
-                FOREIGN KEY (insumo_id) REFERENCES insumos(id)
+                FOREIGN KEY (insumo_id) REFERENCES insumos(id),
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
             )
             '''
         )
 
     def inserir_usuario(self, nome, cracha, senha, tipo):
-        """ Insere um usuário na tabela usuários"""
+        """ Insere um usuário na tabela de usuários """
         senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
         self.cursor.execute(
             '''
             INSERT INTO usuarios (nome, cracha, senha, tipo)
             VALUES (?, ?, ?, ?)
-            '''
-            , (nome, cracha, senha_hash, tipo))
+            ''', (nome, cracha, senha_hash, tipo))
 
     def inserir_solicitacao(self, nome, cracha, descricao, data_atual, status):
-        """ Insere uma solicitação na tabela de solicatações"""
+        """ Insere uma solicitação na tabela de solicitações """
         self.cursor.execute(
             '''
-            INSERT INTO solicitacoes (nome, cracha, descricao, data, status)
+            INSERT INTO solicitacoes (nome, cracha, descricao_solicitacao, data_solicitacao, status)
             VALUES (?, ?, ?, ?, ?)
-            '''
-            , (nome, cracha, descricao, data_atual, status)
-        )
+            ''', (nome, cracha, descricao, data_atual, status))
 
     def adicionar_insumo(self, cod_sap, nome, descricao=None, quantidade_disponivel=0):
-        """Adiciona um novo insumo ao banco de dados."""
+        """ Adiciona um novo insumo ao banco de dados """
         self.cursor.execute(
             '''
             INSERT INTO insumos (cod_sap, nome, descricao, quantidade_disponivel)
             VALUES (?, ?, ?, ?)
-            ''',
-            (cod_sap, nome, descricao, quantidade_disponivel)
-        )
+            ''', (cod_sap, nome, descricao, quantidade_disponivel))
 
-    def remover_insumo(self, insumo_id):
-        """Remove um insumo do banco de dados."""
+    def popular_insumos(self):
+        """ Popula a tabela de insumos com os dados fornecidos """
+        for cod_sap, nome in INSUMOS:
+            self.adicionar_insumo(cod_sap, nome)
+
+    def popular_dados_iniciais(self):
+        """ Popula o banco de dados com dados iniciais """
+        self.inserir_usuario(*ADMIN_USER)
+        for usuario in EXAMPLE_USERS:
+            self.inserir_usuario(*usuario)
+        for solicitacao in EXAMPLE_REQUESTS:
+            self.inserir_solicitacao(*solicitacao, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'pendente')
+        self.popular_insumos()
+
+    def criar_banco_dados(self):
+        """ Cria o banco de dados e popula com dados iniciais """
+        if not os.path.exists(self.sql_dir):
+            os.makedirs(self.sql_dir)
+            print(f"Diretório {self.sql_dir} criado.")
+
+        db_path = os.path.join(self.sql_dir, DATABASE_NAME)
+
+        if os.path.exists(db_path):
+            print("Banco de dados já existe!")
+            return
+
+        with DatabaseManager() as db:
+            db.criar_tabelas()
+            db.popular_dados_iniciais()
+            print("Banco de dados criado e populado com sucesso!")
+
+    def verificar_limite_usuario(self, usuario_id, quantidade):
+        """Verifica se o usuário tem limite disponível para solicitar insumos."""
+        self.cursor.execute('''
+        SELECT limite_solicitacao FROM usuarios WHERE id = ?
+        ''', (usuario_id,))
+        limite = self.cursor.fetchone()[0]
+
+        self.cursor.execute('''
+        SELECT SUM(quantidade) FROM solicitacoes_insumos WHERE usuario_id = ?
+        ''', (usuario_id,))
+        total_solicitado = self.cursor.fetchone()[0] or 0
+
+        return (total_solicitado + quantidade) <= limite
+
+    def adicionar_insumo_a_solicitacao_com_limite(self, solicitacao_id, insumo_id, quantidade, usuario_id):
+        """Adiciona um insumo a uma solicitação, verificando o limite do usuário."""
+        if not self.verificar_limite_usuario(usuario_id, quantidade):
+            raise ValueError("Limite de solicitação excedido para o usuário.")
+
         self.cursor.execute(
             '''
-            DELETE FROM insumos WHERE id = ?
+            INSERT INTO solicitacoes_insumos (solicitacao_id, insumo_id, quantidade, usuario_id)
+            VALUES (?, ?, ?, ?)
             ''',
-            (insumo_id,)
+            (solicitacao_id, insumo_id, quantidade, usuario_id)
         )
 
-    def atualizar_insumo(self, insumo_id, cod_sap=None, nome=None, descricao=None, quantidade_disponivel=None):
-        """Atualiza as informações de um insumo."""
-        query = "UPDATE insumos SET "
-        params = []
-        if cod_sap:
-            query += "cod_sap = ?, "
-            params.append(cod_sap)
-        if nome:
-            query += "nome = ?, "
-            params.append(nome)
-        if descricao:
-            query += "descricao = ?, "
-            params.append(descricao)
-        if quantidade_disponivel is not None:
-            query += "quantidade_disponivel = ?, "
-            params.append(quantidade_disponivel)
-        query = query.rstrip(", ") + " WHERE id = ?"
-        params.append(insumo_id)
-        self.cursor.execute(query, tuple(params))
+    def atualizar_status_pagamento(self, solicitacao_id, status_pagamento):
+        """Atualiza o status de pagamento de uma solicitação."""
+        self.cursor.execute('''
+        UPDATE solicitacoes SET status_pagamento = ? WHERE id = ?
+        ''', (status_pagamento, solicitacao_id))
+
+    def buscar_solicitacoes_por_status_pagamento(self, status_pagamento):
+        """Busca solicitações no banco de dados com base no status de pagamento."""
+        self.cursor.execute('''
+        SELECT * FROM solicitacoes WHERE status_pagamento = ? ORDER BY id DESC
+        ''', (status_pagamento,))
+        return self.cursor.fetchall()
 
     def buscar_insumos(self):
         """Busca todos os insumos no banco de dados."""
@@ -178,35 +284,6 @@ class DatabaseManager:
         SELECT * FROM insumos WHERE cod_sap = ?
         ''', (cod_sap,))
         return self.cursor.fetchone()
-
-    def adicionar_insumo_a_solicitacao(self, solicitacao_id, insumo_id, quantidade):
-        """Adiciona um insumo a uma solicitação."""
-        self.cursor.execute(
-            '''
-            INSERT INTO solicitacoes_insumos (solicitacao_id, insumo_id, quantidade)
-            VALUES (?, ?, ?)
-            ''',
-            (solicitacao_id, insumo_id, quantidade)
-        )
-
-    def remover_insumo_de_solicitacao(self, solicitacao_id, insumo_id):
-        """Remove um insumo de uma solicitação."""
-        self.cursor.execute(
-            '''
-            DELETE FROM solicitacoes_insumos WHERE solicitacao_id = ? AND insumo_id = ?
-            ''',
-            (solicitacao_id, insumo_id)
-        )
-
-    def atualizar_quantidade_insumo_em_solicitacao(self, solicitacao_id, insumo_id, quantidade):
-        """Atualiza a quantidade de um insumo em uma solicitação."""
-        self.cursor.execute(
-            '''
-            UPDATE solicitacoes_insumos SET quantidade = ?
-            WHERE solicitacao_id = ? AND insumo_id = ?
-            ''',
-            (quantidade, solicitacao_id, insumo_id)
-        )
 
     def buscar_insumos_por_solicitacao(self, solicitacao_id):
         """Busca todos os insumos associados a uma solicitação."""
@@ -284,35 +361,9 @@ class DatabaseManager:
         DELETE FROM usuarios WHERE id = ?
         ''', (id_usuario,))
 
-    def popular_dados_iniciais(self):
-        """Popula o banco de dados com dados iniciais."""
-        self.inserir_usuario(*ADMIN_USER)
-        for usuario in EXAMPLE_USERS:
-            self.inserir_usuario(*usuario)
-        for solicitacao in EXAMPLE_REQUESTS:
-            self.inserir_solicitacao(*solicitacao)
-
-    def criar_banco_dados(self):
-        """ Cria o banco de dados e popula com dados iniciais"""
-        # Cria o diretório se não existir
-        if not os.path.exists(self.sql_dir):
-            os.makedirs(self.sql_dir)
-            print(f"Diretório {self.sql_dir} criado.")
-
-        db_path = os.path.join(self.sql_dir, DATABASE_NAME)
-
-        if os.path.exists(db_path):
-            print("Banco de dados já existe!")
-            return
-
-        with DatabaseManager() as db:
-            db.criar_tabelas()
-            db.popular_dados_iniciais()
-            print("Banco de dados criado e populado com sucesso!")
-
 
 def ler_config():
-    """ Lê o aruqivo de configuração e retorna o diretório do banco de dados."""
+    """ Lê o arquivo de configuração e retorna o diretório do banco de dados """
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
     return config['PATH']['sql_dir']
